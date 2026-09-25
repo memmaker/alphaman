@@ -1,0 +1,59 @@
+' ---- port helpers --------------------------------------------------------
+' Every key the game reads comes from rv_key$: first the queue rv_q$ (keys
+' pushed by explore/menus), then the test key file ALPHA_KEYS, then the keyboard.
+FUNCTION rv_key$
+  DO
+    IF rv_q$ = "" THEN rv_poll
+    IF rv_q$ <> "" THEN
+      n = 1: IF LEFT$(rv_q$, 1) = CHR$(0) THEN n = 2
+      rv_key$ = LEFT$(rv_q$, n): rv_q$ = MID$(rv_q$, n + 1): EXIT FUNCTION
+    END IF
+    k$ = INKEY$
+    IF k$ <> "" THEN rv_key$ = k$: EXIT FUNCTION
+    _LIMIT 100
+  LOOP
+END FUNCTION
+
+' Test hook: ALPHA_KEYS = file the tester appends keys to (\n = Enter,
+' {up} {down} {left} {right} {esc} for specials); ALPHA_DUMP = text dump.
+SUB rv_poll
+  STATIC kpos AS LONG, kf$, df$, started
+  IF NOT started THEN kf$ = ENVIRON$("ALPHA_KEYS"): df$ = ENVIRON$("ALPHA_DUMP"): started = -1
+  IF df$ <> "" THEN rv_dump df$ + CHR$(0)
+  IF kf$ = "" THEN EXIT SUB
+  IF NOT _FILEEXISTS(kf$) THEN EXIT SUB
+  OPEN kf$ FOR BINARY AS #9
+  IF LOF(9) > kpos THEN
+    a$ = SPACE$(LOF(9) - kpos): GET #9, kpos + 1, a$: kpos = LOF(9)
+    a$ = rv_repl$(a$, CHR$(10), CHR$(13))
+    a$ = rv_repl$(a$, "{esc}", CHR$(27))
+    a$ = rv_repl$(a$, "{up}", CHR$(0) + "H"): a$ = rv_repl$(a$, "{down}", CHR$(0) + "P")
+    a$ = rv_repl$(a$, "{left}", CHR$(0) + "K"): a$ = rv_repl$(a$, "{right}", CHR$(0) + "M")
+    rv_q$ = rv_q$ + a$
+  END IF
+  CLOSE #9
+END SUB
+
+FUNCTION rv_repl$ (s$, a$, b$)
+  i = INSTR(s$, a$)
+  DO WHILE i
+    s$ = LEFT$(s$, i - 1) + b$ + MID$(s$, i + LEN(a$)): i = INSTR(i + LEN(b$), s$, a$)
+  LOOP
+  rv_repl$ = s$
+END FUNCTION
+
+' LINE INPUT replacement reading through rv_key$ (echo, backspace, Enter).
+FUNCTION rv_line$
+  s$ = "": x = POS(0): y = CSRLIN
+  DO
+    LOCATE y, x, 1: PRINT s$; " "; : LOCATE y, x + LEN(s$), 1
+    k$ = rv_key$
+    SELECT CASE k$
+      CASE CHR$(13): EXIT DO
+      CASE CHR$(8): IF LEN(s$) THEN s$ = LEFT$(s$, LEN(s$) - 1)
+      CASE ELSE: IF LEN(k$) = 1 AND ASC(k$) >= 32 THEN s$ = s$ + k$
+    END SELECT
+  LOOP
+  LOCATE y, x, 0: PRINT s$;
+  rv_line$ = s$
+END FUNCTION

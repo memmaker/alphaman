@@ -1098,7 +1098,7 @@ SUB KillBadMaps (mode)
     EXIT SUB
   END IF
  
-  FOR cl = -9 - 2 * (mode = 1) TO 7
+  clstart = -9 - 2 * (mode = 1): FOR cl = clstart TO 7
     getridoffile = false
     filout$ = "deleteme." + LTRIM$(STR$(cl + 8))
    
