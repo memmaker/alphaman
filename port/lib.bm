@@ -3,14 +3,34 @@
 ' pushed by explore/menus), then the test key file ALPHA_KEYS, then the keyboard.
 FUNCTION rv_key$
   DO
-    IF rv_q$ = "" THEN rv_poll
-    IF rv_q$ <> "" THEN
-      n = 1: IF LEFT$(rv_q$, 1) = CHR$(0) THEN n = 2
-      rv_key$ = LEFT$(rv_q$, n): rv_q$ = MID$(rv_q$, n + 1): EXIT FUNCTION
-    END IF
-    k$ = INKEY$
+    k$ = rv_keynow$
     IF k$ <> "" THEN rv_key$ = k$: EXIT FUNCTION
     _LIMIT 100
+  LOOP
+END FUNCTION
+
+' One key or "" (no wait). Keypad digits (with NumLock on a Mac they arrive
+' as digits) become the DOS cursor keys the game moves with: 1-9 = End Down
+' PgDn Left (5 = centre, CHR$(0)+"L") Right Home Up PgUp; 0 = Esc.
+FUNCTION rv_keynow$
+  IF rv_q$ = "" THEN rv_poll
+  IF rv_q$ <> "" THEN
+    n = 1: IF LEFT$(rv_q$, 1) = CHR$(0) THEN n = 2
+    rv_keynow$ = LEFT$(rv_q$, n): rv_q$ = MID$(rv_q$, n + 1): EXIT FUNCTION
+  END IF
+  DO
+    k& = _KEYHIT
+    IF k& = 0 THEN EXIT FUNCTION
+    IF k& > 0 THEN
+      IF k& >= 48 AND k& <= 57 THEN
+        IF _KEYDOWN(100256 + k& - 48) THEN
+          rv_keynow$ = MID$(CHR$(27) + CHR$(0) + "O" + CHR$(0) + "P" + CHR$(0) + "Q" + CHR$(0) + "K" + CHR$(0) + "L" + CHR$(0) + "M" + CHR$(0) + "G" + CHR$(0) + "H" + CHR$(0) + "I", 1 + (k& - 48) * 2 + (k& > 48), 2 + (k& = 48))
+          EXIT FUNCTION
+        END IF
+      END IF
+      IF k& < 256 THEN rv_keynow$ = CHR$(k&): EXIT FUNCTION
+      IF k& < 65536 AND (k& AND 255) = 0 THEN rv_keynow$ = CHR$(0) + CHR$(k& \ 256): EXIT FUNCTION
+    END IF
   LOOP
 END FUNCTION
 

@@ -2,6 +2,7 @@
 DECLARE LIBRARY "./alpclib"
   SUB rv_setpage (BYVAL p%, BYVAL ptr AS _OFFSET)
   SUB rv_setpag2 (BYVAL ptr AS _OFFSET)
+  FUNCTION rv_pag2get% (BYVAL x%, BYVAL y%)
   SUB rv_dump (path$)
   FUNCTION rv_visible% ()
   SUB rv_winsize (BYVAL w%, BYVAL h%)

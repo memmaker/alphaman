@@ -63,5 +63,5 @@ out += [l for l in extra if l.upper().lstrip().startswith("DIM")]
 out += ["'$INCLUDE: 'init.bi'"]
 out += main
 out += ["END", ""] + [l for l in extra if not l.upper().lstrip().startswith("DIM")]
-out += [""] + subs + ["'$INCLUDE: 'lib.bm'"]
+out += [""] + subs + ["'$INCLUDE: 'lib.bm'", "'$INCLUDE: 'rvip.bm'"]
 (root / "port" / "alphaman.bas").write_text("\n".join(out) + "\n", encoding="latin-1")

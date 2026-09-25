@@ -833,7 +833,7 @@ END FUNCTION
 
 SUB GetSym (sym, col, row, fcolr, bcolr, pag)
   IF pag = 2 THEN
-    attr = pag2(col, row)
+    attr = rv_pag2get(col, row)
   ELSE
     attr = cGetSym(col, row, pag)
   END IF
@@ -1477,7 +1477,7 @@ SUB PutSym (sym, col, row, fcolr, bcolr, pag)
     END IF
   ELSEIF pag = -1 THEN
     cPutSym sym, col, row, fcolr, bcolr, 1
-    pag2(col, row) = sym + fcolr * 256 + bcolr * 4096
+    IF col <= 52 AND row <= 22 THEN pag2(col, row) = sym + fcolr * 256 + bcolr * 4096
   ELSE
     cPutSym sym, col, row, fcolr, bcolr, pag
   END IF
@@ -1768,7 +1768,7 @@ SUB SelectGoody (num, colr, pak)
     COLOR 11, 0: LOCATE 1, 58: Printjnk 405, 58, 8
   END IF
   PrintMessage colr, 0
-sg: PauseForKey: k = ASC(st1)
+sg: rv_itemkey nnn: k = ASC(st1)
   SELECT CASE k
     CASE 27: num = 0: ClearMess: EXIT SUB
     CASE 49: IF (num AND 1) THEN num = -1 ELSE Wrong: GOTO sg

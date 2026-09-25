@@ -8,13 +8,18 @@ static int16_t *rv_pag2;
 static void rv_setpage(int16_t p, intptr_t ptr) { rv_page[p] = (uint8_t *)ptr; }
 static void rv_setpag2(intptr_t ptr) { rv_pag2 = (int16_t *)ptr; }
 
+/* pag2(col,row) read like the unchecked DOS build: out-of-range indices land
+   on the neighbouring cell of the same array; beyond the array reads 0. */
+static int16_t rv_pag2get(int x, int y) {
+  int i = (x - 1) + (y - 1) * 52;
+  return (i >= 0 && i < 52 * 22) ? rv_pag2[i] : 0;
+}
 static int sgn(int n) { return n < 0 ? -1 : n > 0; }
 static int isqrt(unsigned int n) { return (int)sqrt((double)n); }
 
 static int16_t cgetsym(int x, int y, int pag) {
   if (pag == 2) {   /* BASIC GetSym on pag2(col,row), 52x22, column-major */
-    if (x < 1 || x > 52 || y < 1 || y > 22) return 0;
-    int16_t a = rv_pag2[(x - 1) + (y - 1) * 52];
+    int16_t a = rv_pag2get(x, y);
     int sym = a % 256, bc = a / 4096, fc = (a / 256) % 16;
     return (int16_t)(((fc + bc * 16) << 8) + sym);
   }

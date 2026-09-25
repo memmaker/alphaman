@@ -1274,7 +1274,7 @@ thrit:
   IF agin AND keysave2 AND (launch = 0) THEN
     i = keysave1: LOCATE 23, 29: PRINT CHR$(i);
   ELSE
-    PauseForKey
+    rv_itemkey ngoody
     i = ASC(st1): keysave1 = i
   END IF
   IF i = 27 THEN didstuff = false: ClearMess: PrintMessage 7, 0: GOTO tre

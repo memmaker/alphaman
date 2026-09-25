@@ -287,7 +287,7 @@ mainloop:    'Main Loop of program ==========================================
   IF asleep THEN
     Ljnk 252, 28, 5, 1: st1 = CHR$(46): forcefield = false: tentgrab = 0
   ELSEIF (mheal <= 0) THEN
-    PauseForKey
+    rv_command
   ELSE
     st1 = CHR$(46)
   END IF

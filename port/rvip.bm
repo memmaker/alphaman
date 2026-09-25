@@ -1,0 +1,362 @@
+' ---- RVIP: auto-explore (x), stair walking (< >), Enter command menu --------
+' rv_command replaces PauseForKey in the main loop: it returns the next command
+' in st1, either a real key or a step of an ongoing walk.
+' Maps: page 1 = what the player has seen (map area cols 2-51, rows 2-21).
+
+SUB rv_command
+  STATIC lastx, lasty, lastmsg
+  IF rv_mode THEN
+    stopit = 0
+    IF rv_keynow$ <> "" THEN stopit = -1 ' any key stops a walk (and is dropped)
+    IF lpoint <> lastmsg THEN stopit = -1
+    IF localx = lastx AND localy = lasty THEN stopit = -1 ' bumped: no progress
+    IF rv_monster THEN stopit = -1
+    IF rv_mode >= 2 THEN IF currsym = 240 AND currf = 5 + 8 * (rv_mode = 3) * -1 THEN stopit = 0 ' arrived: climb
+    IF stopit THEN
+      rv_mode = 0
+    ELSE
+      st1 = rv_step$
+      IF st1 <> "" THEN lastx = localx: lasty = localy: lastmsg = lpoint: EXIT SUB
+      rv_mode = 0
+    END IF
+  END IF
+  first$ = ""
+  IF rv_reopen THEN
+    rv_reopen = 0
+    IF NOT rv_monster THEN first$ = "i" ' reopen the list after an item action
+  END IF
+  DO
+    IF first$ <> "" THEN st1 = first$: first$ = "" ELSE PauseForKey
+    IF st1 = CHR$(0) + "L" THEN st1 = "." ' keypad 5 = rest
+    IF st1 = CHR$(12) AND ENVIRON$("ALPHA_WIZ") <> "" AND incastle = 0 THEN ' test: Ctrl-L = into a lair
+      SaveMaps 0: DrawLair: st1 = CHR$(27): EXIT DO
+    END IF
+    SELECT CASE st1
+      CASE CHR$(13)
+        st1 = rv_menu$
+        IF st1 = "" THEN _CONTINUE
+        IF st1 <> "x" AND st1 <> "<" AND st1 <> ">" AND st1 <> "i" THEN EXIT DO
+    END SELECT
+    IF st1 = "i" THEN rv_inventory: EXIT DO
+    SELECT CASE st1
+      CASE "x"
+        IF rv_monster THEN rv_say "A creature is in view.": _CONTINUE
+        rv_mode = 1: rv_newlevel
+      CASE "<", ">"
+        want = 5: IF st1 = ">" THEN want = 13
+        IF currsym = 240 AND currf = want THEN EXIT DO ' on the stairs: take them
+        rv_mode = 2 + (st1 = ">") * -1                  ' 2 = down, 3 = up
+      CASE ELSE: EXIT DO
+    END SELECT
+    lastx = -1: lastmsg = lpoint
+    st1 = rv_step$
+    IF st1 <> "" THEN lastx = localx: lasty = localy: EXIT DO
+    m = rv_mode: rv_mode = 0
+    IF m = 1 THEN rv_say "Nothing left to explore here." ELSE rv_say "No known stairs that way."
+  LOOP
+END SUB
+
+SUB rv_say (t$)
+  ClearMess: l1 = t$: PrintMessage 14, 0
+END SUB
+
+' Forget visited squares when the level changes.
+SUB rv_newlevel
+  STATIC lev$
+  k$ = STR$(incastle) + STR$(castlelevel) + STR$(mainx) + STR$(mainy) + STR$(castle)
+  IF k$ <> lev$ THEN lev$ = k$: FOR i = 1 TO 52: FOR j = 1 TO 22: rv_vis(i, j) = 0: NEXT j, i
+END SUB
+
+FUNCTION rv_sym (x, y)
+  rv_sym = cGetSym(x, y, 1) AND 255
+END FUNCTION
+
+FUNCTION rv_isitem (s)
+  SELECT CASE s
+    CASE 5, 8, 9, 11, 12, 18, 21, 22, 24, 29, 35, 128, 135, 145, 147, 157, 167, 225, 234, 236, 254: rv_isitem = -1
+  END SELECT
+END FUNCTION
+
+' Squares a walk may step on (known, harmless). Outdoors trees/bushes/water
+' are left out: they cost turns or drown you.
+FUNCTION rv_pass (x, y)
+  IF x < 2 OR x > 51 OR y < 2 OR y > 21 THEN EXIT FUNCTION
+  s = rv_sym(x, y)
+  IF rv_isitem(s) THEN rv_pass = -1: EXIT FUNCTION
+  SELECT CASE s
+    CASE 250, 249, 240: rv_pass = -1
+    CASE 32, 176, 177: rv_pass = (incastle = 0)
+    CASE 206 ' doorway; on the castle's outer wall it leaves the castle
+      IF incastle THEN rv_pass = NOT (x <= lwall OR x >= rwall OR y <= twall OR y >= bwall)
+  END SELECT
+END FUNCTION
+
+FUNCTION rv_monster
+  FOR x = 2 TO 51: FOR y = 2 TO 21
+    s = rv_sym(x, y)
+    IF (s >= 65 AND s <= 90) OR (s >= 97 AND s <= 122) THEN
+      IF incastle OR (ABS(x - localx) <= 6 AND ABS(y - localy) <= 6) THEN rv_monster = -1: EXIT FUNCTION
+    END IF
+  NEXT y, x
+END FUNCTION
+
+FUNCTION rv_target (x, y)
+  IF x = localx AND y = localy THEN EXIT FUNCTION
+  s = rv_sym(x, y)
+  SELECT CASE rv_mode
+    CASE 1
+      IF rv_vis(x, y) THEN EXIT FUNCTION
+      IF rv_isitem(s) THEN rv_target = -1: EXIT FUNCTION
+      IF incastle = 0 THEN EXIT FUNCTION
+      FOR dx = -1 TO 1: FOR dy = -1 TO 1
+        xx = x + dx: yy = y + dy
+        IF xx >= 2 AND xx <= 51 AND yy >= 2 AND yy <= 21 THEN
+          IF rv_sym(xx, yy) = 32 THEN rv_target = -1: EXIT FUNCTION
+        END IF
+      NEXT dy, dx
+    CASE 2, 3
+      IF s = 240 AND ((cGetSym(x, y, 1) \ 256) AND 15) = 5 + 8 * (rv_mode = 3) * -1 THEN rv_target = -1
+  END SELECT
+END FUNCTION
+
+' One step (as a keypad key) towards the nearest target, "" if none.
+' Arriving on stairs returns the stair key itself.
+FUNCTION rv_step$
+  IF localx < 2 OR localx > 51 OR localy < 2 OR localy > 21 THEN EXIT FUNCTION ' not on the local map
+  rv_newlevel
+  rv_vis(localx, localy) = -1
+  IF rv_mode >= 2 THEN
+    IF currsym = 240 AND currf = 5 + 8 * (rv_mode = 3) * -1 THEN
+      rv_step$ = MID$("<>", rv_mode - 1, 1): rv_mode = 0: EXIT FUNCTION
+    END IF
+  END IF
+  DIM px(1 TO 1040), py(1 TO 1040), fx(1 TO 52, 1 TO 22), fy(1 TO 52, 1 TO 22)
+  REDIM seen(1 TO 52, 1 TO 22)
+  h = 1: t = 1: px(1) = localx: py(1) = localy: seen(localx, localy) = -1
+  DO WHILE h <= t
+    x = px(h): y = py(h): h = h + 1
+    IF rv_target(x, y) THEN
+      DO WHILE fx(x, y) <> localx OR fy(x, y) <> localy ' back to the first step
+        ox = fx(x, y): y = fy(x, y): x = ox
+      LOOP
+      dx = x - localx: dy = y - localy
+      rv_step$ = CHR$(0) + CHR$(VAL(MID$("717273757677798081", ((dy + 1) * 3 + dx + 1) * 2 + 1, 2)))
+      EXIT FUNCTION
+    END IF
+    FOR d = 0 TO 7
+      dx = VAL(MID$("-1 0 1 1 1 0-1-1", d * 2 + 1, 2)): dy = VAL(MID$("-1-1-1 0 1 1 1 0", d * 2 + 1, 2))
+      nx = x + dx: ny = y + dy
+      IF nx >= 2 AND nx <= 51 AND ny >= 2 AND ny <= 21 THEN
+        IF NOT seen(nx, ny) THEN
+          ok = rv_pass(nx, ny) OR (rv_target(nx, ny) AND rv_isitem(rv_sym(nx, ny)))
+          ' doorways only straight in and out
+          IF ok AND dx <> 0 AND dy <> 0 AND incastle THEN
+            IF rv_sym(nx, ny) = 206 OR rv_sym(x, y) = 206 THEN ok = 0
+          END IF
+          IF ok THEN
+            seen(nx, ny) = -1: fx(nx, ny) = x: fy(nx, ny) = y
+            t = t + 1: px(t) = nx: py(t) = ny
+          END IF
+        END IF
+      END IF
+    NEXT d
+  LOOP
+END FUNCTION
+
+' ---- Enter menu: the commands of the help file (alphaman.5), in groups ------
+FUNCTION rv_menu$
+  STATIC nk, key$(), desc$(), grp()
+  IF nk = 0 THEN
+    REDIM key$(1 TO 60), desc$(1 TO 60), grp(1 TO 60)
+    OPEN "alphaman.5" FOR INPUT AS #9
+    DO UNTIL EOF(9)
+      LINE INPUT #9, a$
+      c = INSTR(a$, ":")
+      IF a$ = "" THEN IF nk > 0 THEN EXIT DO
+      IF c >= 2 AND c <= 5 AND LEFT$(a$, 7) <> "Numeric" THEN
+        k$ = RTRIM$(LEFT$(a$, c - 1)): d$ = LTRIM$(MID$(a$, c + 1))
+        IF INSTR(d$, "not used") = 0 THEN
+          nk = nk + 1: key$(nk) = k$
+          p = INSTR(d$, ".  "): IF p = 0 THEN p = INSTR(d$, ". ")
+          IF p THEN d$ = LEFT$(d$, p - 1)
+          p = INSTR(d$, ","): IF p THEN d$ = LEFT$(d$, p - 1)
+          desc$(nk) = d$
+          IF LEFT$(k$, 1) = "F" AND LEN(k$) > 1 THEN
+            grp(nk) = 1
+          ELSEIF (k$ >= "A" AND k$ <= "Z") OR k$ = "?" OR k$ = "Esc" THEN
+            grp(nk) = 3
+          ELSE
+            grp(nk) = 2
+          END IF
+        END IF
+      END IF
+    LOOP
+    CLOSE #9
+  END IF
+  g = rv_list(" Commands ", "Actions" + CHR$(10) + "Screens (F-keys)" + CHR$(10) + "Game", 0)
+  IF g = 0 THEN EXIT FUNCTION
+  g = VAL(MID$("213", g, 1))
+  a$ = "": n = 0: REDIM idx(1 TO 60)
+  FOR i = 1 TO nk
+    IF grp(i) = g THEN n = n + 1: idx(n) = i: a$ = a$ + LEFT$(key$(i) + "   ", 4) + desc$(i) + CHR$(10)
+  NEXT
+  c = rv_list(" " + MID$("Screens Actions Game   ", g * 8 - 7, 8), LEFT$(a$, LEN(a$) - 1), 4)
+  IF c = 0 THEN EXIT FUNCTION
+  k$ = key$(idx(c))
+  SELECT CASE k$
+    CASE "Esc": rv_menu$ = CHR$(27)
+    CASE "F10": rv_menu$ = "0"
+    CASE ELSE
+      IF LEFT$(k$, 1) = "F" AND LEN(k$) > 1 THEN rv_menu$ = MID$(k$, 2) ELSE rv_menu$ = LEFT$(k$, 1)
+  END SELECT
+END FUNCTION
+
+' Boxed pop-up list on the visible page, sized to its content. Returns the
+' chosen line (1..n) or 0. Arrows/keypad 8 2, Enter/5, Esc/0, the key shown in
+' the first keylen columns, or a mouse click.
+FUNCTION rv_list (title$, items$, keylen)
+  REDIM it$(1 TO 40): n = 0: w = LEN(title$)
+  a$ = items$ + CHR$(10)
+  DO WHILE LEN(a$)
+    p = INSTR(a$, CHR$(10)): n = n + 1: it$(n) = LEFT$(a$, p - 1): a$ = MID$(a$, p + 1)
+    IF LEN(it$(n)) > w THEN w = LEN(it$(n))
+  LOOP
+  vp = rv_visible: IF vp < 0 THEN vp = vpage
+  PCOPY vp, 7
+  x0 = (80 - (w + 4)) \ 2: y0 = (25 - (n + 2)) \ 2 + 1
+  SCREEN , , vp, vp
+  Box x0, x0 + w + 3, y0, y0 + n + 1, 2, 14, vp
+  COLOR 14, 0: LOCATE y0, x0 + 2: PRINT title$;
+  cur = 1
+  DO
+    FOR i = 1 TO n
+      IF i = cur THEN COLOR 0, 7 ELSE COLOR 15, 0
+      LOCATE y0 + i, x0 + 1: PRINT " "; LEFT$(it$(i) + SPACE$(w), w); " ";
+    NEXT
+    DO
+      k$ = ""
+      DO WHILE _MOUSEINPUT
+        IF _MOUSEBUTTON(1) THEN
+          my = _MOUSEY - y0: mx = _MOUSEX
+          IF my >= 1 AND my <= n AND mx > x0 AND mx < x0 + w + 3 THEN r = my: GOTO done
+        END IF
+      LOOP
+      k$ = rv_keynow$
+      IF k$ = "" THEN _LIMIT 60
+    LOOP WHILE k$ = ""
+    SELECT CASE k$
+      CASE CHR$(0) + "H": cur = cur - 1: IF cur < 1 THEN cur = n
+      CASE CHR$(0) + "P": cur = cur + 1: IF cur > n THEN cur = 1
+      CASE CHR$(13), CHR$(0) + "L": r = cur: GOTO done
+      CASE CHR$(27), "0": r = 0: GOTO done
+      CASE ELSE
+        FOR i = 1 TO n
+          IF keylen THEN
+            kk$ = RTRIM$(LEFT$(it$(i), keylen))
+            IF kk$ = k$ OR (kk$ = "Esc" AND k$ = CHR$(27)) THEN r = i: GOTO done
+          ELSEIF UCASE$(LEFT$(it$(i), 1)) = UCASE$(k$) THEN
+            r = i: GOTO done
+          END IF
+        NEXT
+    END SELECT
+  LOOP
+done:
+  PCOPY 7, vp
+  SCREEN , , vpage, vp
+  rv_list = r
+END FUNCTION
+
+' ---- Item lists with a cursor ----------------------------------------------
+' The possessions list is drawn by DisplayGoodies on the right: item i on row
+' i+1, letter in column 55. rv_pick$ highlights rv_cur there and returns the
+' key: CHR$(13) for Enter / keypad 5 / click, anything else as typed.
+SUB rv_hl (row, onoff)
+  STATIC hsave(55 TO 80)
+  vp = rv_visible: IF vp < 0 THEN vp = vpage
+  FOR x = 55 TO 80
+    v = cGetSym(x, row + 1, vp): a = (v \ 256) AND 255
+    IF onoff THEN hsave(x) = a: a = &H70 ELSE a = hsave(x)
+    cPutSym v AND 255, x, row + 1, a AND 15, a \ 16, vp
+  NEXT
+END SUB
+
+FUNCTION rv_pick$ (n)
+  IF n < 1 THEN rv_pick$ = rv_key$: EXIT FUNCTION
+  IF rv_cur < 1 OR rv_cur > n THEN rv_cur = 1
+  DO
+    rv_hl rv_cur, -1
+    k$ = ""
+    DO
+      DO WHILE _MOUSEINPUT
+        IF _MOUSEBUTTON(1) AND _MOUSEX >= 54 AND _MOUSEY >= 2 AND _MOUSEY <= n + 1 THEN
+          rv_hl rv_cur, 0: rv_cur = _MOUSEY - 1: rv_hl rv_cur, -1: k$ = CHR$(13)
+        END IF
+      LOOP
+      IF k$ = "" THEN k$ = rv_keynow$
+      IF k$ = "" THEN _LIMIT 60
+    LOOP WHILE k$ = ""
+    rv_hl rv_cur, 0
+    SELECT CASE k$
+      CASE CHR$(0) + "H": rv_cur = rv_cur - 1: IF rv_cur < 1 THEN rv_cur = n
+      CASE CHR$(0) + "P": rv_cur = rv_cur + 1: IF rv_cur > n THEN rv_cur = 1
+      CASE CHR$(0) + "L", CHR$(13): rv_pick$ = CHR$(13): EXIT FUNCTION
+      CASE ELSE: rv_pick$ = k$: EXIT FUNCTION
+    END SELECT
+  LOOP
+END FUNCTION
+
+' Item prompts (SelectGoody, Throw): cursor list; Enter picks the item.
+SUB rv_itemkey (n)
+  st1 = rv_pick$(n)
+  IF st1 = CHR$(13) THEN st1 = CHR$(96 + rv_cur)
+END SUB
+
+' Main action of possession i: eat food and berries, take off what is in use,
+' use everything else.
+FUNCTION rv_main$ (i)
+  SELECT CASE ABS(goody(i, 1))
+    CASE 1, 2, 6: rv_main$ = "e"
+    CASE ELSE: IF goody(i, 1) < 0 THEN rv_main$ = "U" ELSE rv_main$ = "u"
+  END SELECT
+END FUNCTION
+
+' i: possessions with a cursor. Letter = main action, Shift+letter = drop,
+' Ctrl+letter = examine, Enter = menu of actions. Actions are the keys a
+' player would type, queued (rv_q$). Any other key is a normal command.
+SUB rv_inventory
+  IF ngoody = 0 THEN rv_say "You carry nothing.": st1 = CHR$(27): EXIT SUB
+  DisplayGoodies false
+  COLOR 15, 0: LOCATE 1, 55: PRINT "Possessions  Enter=actions";
+  DO
+    k$ = rv_pick$(ngoody): i = rv_cur: a$ = ""
+    SELECT CASE k$
+      CASE CHR$(13)
+        t = ABS(goody(i, 1)): m$ = ""
+        IF t = 1 OR t = 2 OR t = 6 THEN m$ = m$ + "e  Eat" + CHR$(10)
+        IF goody(i, 1) < 0 THEN m$ = m$ + "U  Unuse (take off, stop using)" + CHR$(10) ELSE IF t <> 1 AND t <> 2 AND t <> 6 THEN m$ = m$ + "u  Use" + CHR$(10)
+        IF t >= 6 THEN m$ = m$ + "f  Figure out" + CHR$(10)
+        m$ = m$ + "t  Throw" + CHR$(10) + "d  Drop" + CHR$(10) + "X  Examine"
+        c = rv_list(" " + LEFT$(RTRIM$(gdy(i)), 30) + " ", m$, 2)
+        IF c = 0 THEN _CONTINUE
+        FOR j = 1 TO c - 1: m$ = MID$(m$, INSTR(m$, CHR$(10)) + 1): NEXT
+        a$ = LEFT$(m$, 1)
+      CASE "+": a$ = rv_main$(i)
+      CASE "-": a$ = "d"
+      CASE "*": a$ = "X"
+      CASE ELSE
+        c = ASC(k$)
+        IF LEN(k$) = 1 AND c >= 97 AND c < 97 + ngoody THEN i = c - 96: a$ = rv_main$(i)
+        IF LEN(k$) = 1 AND c >= 65 AND c < 65 + ngoody THEN i = c - 64: a$ = "d"
+        IF LEN(k$) = 1 AND c >= 1 AND c <= ngoody AND c <> 13 THEN i = c: a$ = "X"
+    END SELECT
+    IF a$ = "" THEN ' not an item key: back to the stats, run it as a command
+      DisplayCharacter: st1 = k$: EXIT SUB
+    END IF
+    rv_cur = i: st1 = a$: rv_reopen = -1
+    SELECT CASE a$
+      CASE "X": rv_q$ = "I" + CHR$(96 + i) + rv_q$
+      CASE ELSE: rv_q$ = CHR$(96 + i) + rv_q$
+    END SELECT
+    EXIT SUB
+  LOOP
+END SUB
