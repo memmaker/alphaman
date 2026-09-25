@@ -1405,7 +1405,7 @@ END SUB
 SUB MessPause (fc, bc)
   IF NOT bitit THEN
     l3 = "": PrintMessage fc, bc: IF fc > 15 THEN COLOR fc MOD 16, bc
-MesPaws:  LOCATE 25, 1: Printjnk 35, 1, 32: PauseForKey
+MesPaws:  st1 = bl  ' RVIP auto_more; was: LOCATE 25, 1: Printjnk 35, 1, 32: PauseForKey
     IF st1 <> bl AND st1 <> CHR$(27) THEN
       fc = ((fc + 8) MOD 16): IF fc = 0 THEN fc = 7
       COLOR fc, bc: LOCATE 23, 1: PRINT l1;
