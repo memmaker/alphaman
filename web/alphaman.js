@@ -22,6 +22,20 @@
 
 	var running = false, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0;
 
+	/* message log: new text on the message rows goes to #log */
+	var logRows = {}, logTail = [];
+	function logRow(y, s) {
+		s = s.replace(/[^ -~]/g, ' ').trim();
+		if (logRows[y] === s) return;
+		logRows[y] = s;
+		/* ponytail: rows that scroll up re-show old text; skip what the last 3 lines already hold */
+		if (!/[A-Za-z]{2}/.test(s) || logTail.indexOf(s) >= 0) return;
+		logTail.push(s); if (logTail.length > 3) logTail.shift();
+		var l = $('log'), d = document.createElement('div'), end = l.scrollTop + l.clientHeight >= l.scrollHeight - 4;
+		d.textContent = s; l.appendChild(d);
+		if (l.childNodes.length > 500) l.removeChild(l.firstChild);
+		if (end) l.scrollTop = l.scrollHeight;
+	}
 	function $(id) { return document.getElementById(id); }
 	function status(msg, isError) {
 		var s = $('status');
@@ -76,6 +90,7 @@
 		if (last.cur && !(cur && last.cx === cx && last.cy === cy)) last.cells[last.cy * COLS + last.cx] = -1;
 		if (cur) { ctx.fillStyle = PAL[7]; ctx.fillRect(cx * CW, cy * CH + CH - 2, CW, 2); last.cells[cy * COLS + cx] = -1; }
 		last.cx = cx; last.cy = cy; last.cur = cur;
+		for (var y = 22; y < 25; y++) { var s = ''; for (var x = 0; x < 51; x++) s += String.fromCharCode(pg[(y * COLS + x) * 2] || 32); logRow(y, s); }
 	}
 	function frame() {
 		if (running) draw();
