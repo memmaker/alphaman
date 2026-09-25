@@ -20,5 +20,5 @@ emcc -O2 -w -fno-strict-aliasing -fwrapv -Iport -I"$FBSRC/src/rtlib" \
   -lidbfs.js -lnodefs.js -sEXPORTED_RUNTIME_METHODS=FS,ENV,ccall,HEAPU8,HEAPU16,HEAP32,NODEFS,IDBFS \
   -sEXPORTED_FUNCTIONS=_main,_rv_pagebuf,_rv_pushkey,_rv_click,_rv_font,_rv_state,_rv_dump \
   --embed-file data@/data -o web/dist/alphaman-core.js
-cp web/index.html web/alphaman.js web/dist/
+cp web/index.html web/alphaman.js "$HOME/Games/rvip-tools/web/rvip-wm.js" web/dist/
 python3 web/make-help.py > web/dist/help.html

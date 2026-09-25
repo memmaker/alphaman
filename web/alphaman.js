@@ -23,27 +23,20 @@
 	var running = false, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0;
 
 	/* message log: new text on the message rows goes to #log */
-	var logRows = {}, logTail = [], logRep = 1;
+	var logRows = {}, logTail = [];
 	function logRow(y, s) {
 		s = s.replace(/[^ -~]/g, ' ').trim();
 		var was = logRows[y];
 		if (was === s) return;
 		logRows[y] = s;
 		if (!/[A-Za-z]{2}/.test(s)) return;
-		var l = $('log'), end = l.scrollTop + l.clientHeight >= l.scrollHeight - 4;
-		/* ponytail: screen-scraped, so a repeat = the last message rewritten onto a row that was cleared */
-		if (s === logTail[logTail.length - 1] && !/[A-Za-z]{2}/.test(was || '') && l.lastChild) {
-			l.lastChild.textContent = s + ' (x' + (++logRep) + ')';
-			if (end) l.scrollTop = l.scrollHeight;
-			return;
+		/* ponytail: screen-scraped, so a repeat = the last message rewritten onto a row that was
+		   cleared (RvipWM.log folds it); other re-shown text is rows scrolling up, skipped */
+		if (!(s === logTail[logTail.length - 1] && !/[A-Za-z]{2}/.test(was || ''))) {
+			if (logTail.indexOf(s) >= 0) return;
+			logTail.push(s); if (logTail.length > 3) logTail.shift();
 		}
-		/* rows that scroll up re-show old text; skip what the last 3 lines already hold */
-		if (logTail.indexOf(s) >= 0) return;
-		logTail.push(s); if (logTail.length > 3) logTail.shift(); logRep = 1;
-		var d = document.createElement('div');
-		d.textContent = s; l.appendChild(d);
-		if (l.childNodes.length > 500) l.removeChild(l.firstChild);
-		if (end) l.scrollTop = l.scrollHeight;
+		RvipWM.log($('log'), s);
 	}
 	function $(id) { return document.getElementById(id); }
 	function status(msg, isError) {
