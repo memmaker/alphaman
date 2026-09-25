@@ -85,7 +85,7 @@
 				if (!last || last.vis !== vis) last = { vis: vis, cells: new Int32Array(COLS * ROWS).fill(-1) };
 				last.cells[y * COLS + x] = key;
 				ctx.fillStyle = PAL[(a >> 4) & 15]; ctx.fillRect(x * CW, y * CH, CW, CH);
-				if (c > 32) ctx.drawImage(atlas, c * CW, (a & 15) * CH, CW, CH, x * CW, y * CH, CW, CH);
+				if (c && c !== 32) ctx.drawImage(atlas, c * CW, (a & 15) * CH, CW, CH, x * CW, y * CH, CW, CH);
 			}
 		if (last.cur && !(cur && last.cx === cx && last.cy === cy)) last.cells[last.cy * COLS + last.cx] = -1;
 		if (cur) { ctx.fillStyle = PAL[7]; ctx.fillRect(cx * CW, cy * CH + CH - 2, CW, 2); last.cells[cy * COLS + cx] = -1; }
