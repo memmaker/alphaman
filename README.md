@@ -3,10 +3,18 @@
 Fork of [superjamie/alphaman-src @ dda5598](https://github.com/superjamie/alphaman-src/commit/dda5598) —
 [all changes since upstream](https://github.com/memmaker/alphaman/compare/dda5598...main).
 
-Build: QB64-PE (`QB64=/path/to/qb64pe port/build.sh`). Play: `./play.sh [name]`.
+Play in the browser: https://ruzzoli.de/roguelikes/alphaman/
+
+Build (Mac): QB64-PE (`QB64=/path/to/qb64pe port/build.sh`). Play: `./play.sh [name]`
+(no name = continue the newest save).
+Build (web): `web/build.sh` — FreeBASIC (`-lang qb`, FreeBASIC-NG's macOS build)
+turns `port/merge.py fb`'s output into C, Emscripten links it with FreeBASIC's
+runtime built for wasm (`make rtlib TARGET=wasm32-unknown-emscripten` in a
+clone of github.com/freebasic/fbc); `port/fb/console.c` is the DOS text-mode
+console (8 pages) that `web/alphaman.js` draws. `web/deploy.sh` uploads `web/dist`.
 Added: `x` auto-explore, `<`/`>` walk to known stairs, Enter = command menu,
 `i` inventory with cursor and item menus, numeric keypad movement.
-No tiles or sound (none exist for this game). No web build: QB64 has no wasm target.
+No tiles or sound (none exist for this game).
 
 ---
 

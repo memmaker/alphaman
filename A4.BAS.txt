@@ -251,7 +251,7 @@ SUB AddToDrop (i)
       drgoody(1, 1) = 9: drgoody(1, 2) = 1: drgoody(1, 3) = 8
       a = 94: b = 46: c = 8
     CASE -nberry - 17  'tape recorder
-      FOR i = 1 TO 8: drgoody(1, i + 1) = ssd(5, i): NEXT
+      FOR ii = 1 TO 8: drgoody(1, ii + 1) = ssd(5, ii): NEXT
       drgoody(1, 1) = 7: drgoody(1, 10) = ssdknown(5): drgoody(1, 11) = 5
       IF ssdknown(5) THEN drgdy(1) = ssdnm$(5) ELSE drgdy(1) = jnk$(35, 39, 17)
     CASE -nberry - 18  'Ivana wig

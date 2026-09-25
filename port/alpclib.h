@@ -3,21 +3,28 @@
    (char+attr cells, set by rv_setpage); page 2 is the BASIC array pag2(). */
 #include <stdint.h>
 #include <math.h>
+/* RV_WEB: included by port/fb/console.c (FreeBASIC + Emscripten build); the
+   BASIC side calls these by name, so they can't be static there. */
+#ifdef RV_WEB
+#define RV_STATIC
+#else
+#define RV_STATIC static
+#endif
 static uint8_t *rv_page[4];
 static int16_t *rv_pag2;
 static void rv_setpage(int16_t p, intptr_t ptr) { rv_page[p] = (uint8_t *)ptr; }
-static void rv_setpag2(intptr_t ptr) { rv_pag2 = (int16_t *)ptr; }
+RV_STATIC void rv_setpag2(intptr_t ptr) { rv_pag2 = (int16_t *)ptr; }
 
 /* pag2(col,row) read like the unchecked DOS build: out-of-range indices land
    on the neighbouring cell of the same array; beyond the array reads 0. */
-static int16_t rv_pag2get(int x, int y) {
+RV_STATIC int16_t rv_pag2get(int x, int y) {
   int i = (x - 1) + (y - 1) * 52;
   return (i >= 0 && i < 52 * 22) ? rv_pag2[i] : 0;
 }
 static int sgn(int n) { return n < 0 ? -1 : n > 0; }
 static int isqrt(unsigned int n) { return (int)sqrt((double)n); }
 
-static int16_t cgetsym(int x, int y, int pag) {
+RV_STATIC int16_t cgetsym(int x, int y, int pag) {
   if (pag == 2) {   /* BASIC GetSym on pag2(col,row), 52x22, column-major */
     int16_t a = rv_pag2get(x, y);
     int sym = a % 256, bc = a / 4096, fc = (a / 256) % 16;
@@ -27,7 +34,7 @@ static int16_t cgetsym(int x, int y, int pag) {
   uint8_t *c = rv_page[pag] + ((y - 1) * 80 + (x - 1)) * 2;
   return (int16_t)(c[0] | (c[1] << 8));
 }
-static void cputsym(int sym, int x, int y, int fc, int bc, int pag) {
+RV_STATIC void cputsym(int sym, int x, int y, int fc, int bc, int pag) {
   if (x < 1 || x > 80 || y < 1 || y > 25) return;   /* BASIC PutSym's check */
   if (pag == 2) {
     if (x <= 52 && y <= 22) rv_pag2[(x - 1) + (y - 1) * 52] = sym + fc * 256 + bc * 4096;
@@ -36,10 +43,10 @@ static void cputsym(int sym, int x, int y, int fc, int bc, int pag) {
   uint8_t *c = rv_page[pag] + ((y - 1) * 80 + (x - 1)) * 2;
   c[0] = sym; c[1] = fc + bc * 16;
 }
-static void ccls(int16_t pag) {
+RV_STATIC void ccls(int16_t pag) {
   for (int i = 0; i < 2000; i++) { rv_page[pag][i * 2] = 32; rv_page[pag][i * 2 + 1] = 7; }
 }
-static void clearright(int16_t pag) {   /* cols 54-80, rows 1-23 */
+RV_STATIC void clearright(int16_t pag) {   /* cols 54-80, rows 1-23 */
   for (int y = 0; y < 23; y++)
     for (int x = 53; x < 80; x++) { rv_page[pag][(y * 80 + x) * 2] = 32; rv_page[pag][(y * 80 + x) * 2 + 1] = 7; }
 }
@@ -74,12 +81,17 @@ void box(int x1, int x2, int y1, int y2, int nl, int fc, int pag);
 
 /* Test hook: write the four text pages as text (CP437 bytes) to path. */
 #include <stdio.h>
+#ifdef RV_WEB
+#include "fb/vgafont.h"
+RV_STATIC int16_t rv_visible(void) { return visible; }   /* console.c */
+#else
 extern img_struct *display_page;   /* libqb: the page SCREEN ,,,v shows */
-static int16_t rv_visible(void) {
+RV_STATIC int16_t rv_visible(void) {
   for (int p = 0; p < 4; p++) if (display_page && display_page->offset == rv_page[p]) return p;
   return -1;
 }
-static void rv_dump(const char *path) {
+#endif
+RV_STATIC void rv_dump(const char *path) {
   FILE *f = fopen(path, "wb"); if (!f) return;
   fprintf(f, "visible %d\n", rv_visible());
   for (int p = 0; p < 4; p++) {
@@ -92,6 +104,7 @@ static void rv_dump(const char *path) {
   fclose(f);
 }
 
+#ifndef RV_WEB
 /* Window size: QB64 has no statement for it; ask the GLUT thread. With
    $RESIZE:STRETCH QB64 scales the 640x400 text screen nearest-neighbour. */
 #include "../src/glut-message.h"
@@ -103,3 +116,4 @@ public:
   void execute() override { glutReshapeWindow(w, h); }
 };
 static void rv_winsize(int16_t w, int16_t h) { libqb_queue_glut_message(new rv_msg_reshape(w, h)); }
+#endif

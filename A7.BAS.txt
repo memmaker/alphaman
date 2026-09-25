@@ -311,8 +311,8 @@ FUNCTION CreatNam$ (typ, i)
   ELSEIF typ = magg AND ncre(i, 14) THEN
     d$ = "Fly"
   ELSE
-    FIELD #3, 20 AS nm$, 30 AS dud$: GET #3, typ
-    c$ = RTRIM$(LTRIM$(nm$)): d$ = SPACE$(20)
+    GET #3, typ, rv_cr
+    c$ = RTRIM$(LTRIM$(rv_cr.nm)): d$ = SPACE$(20)
     k = 1: stopit = false
     DO
       aa = ASC(MID$(c$, k, 1))
@@ -335,10 +335,9 @@ FUNCTION CreatNam$ (typ, i)
 END FUNCTION
 
 FUNCTION Creature (typ, stat)
-  FIELD #3, 20 AS nm$, 30 AS dud$
   IF typ < 1 THEN typ = 1
-  GET #3, typ
-  iii = CVI(MID$(dud$, stat * 2 - 1, 2))
+  GET #3, typ, rv_cr
+  iii = CVI(MID$(rv_cr.dud, stat * 2 - 1, 2))
   IF typ = wimp AND stat = 3 THEN iii = wimpsym + 1000 * wimpcolr
   Creature = iii
 END FUNCTION
@@ -1158,7 +1157,7 @@ SUB Ljnkbig (a, b, c, d, e, f, a$, n, i)
 END SUB
 
 FUNCTION LoadGame (comm$)
-  filin$ = comm$: CheckFil filin$: filin$ = filin$ + ".alf"
+  filin$ = comm$: CheckFil filin$: filin$ = UCASE$(filin$ + ".alf")   'saved as .ALF; the web's file system is case-sensitive
   OPEN filin$ FOR BINARY AS #2
   IF LOF(2) = 0 THEN      'doesn't exist
     CLOSE #2: KILL filin$

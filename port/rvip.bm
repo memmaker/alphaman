@@ -34,13 +34,13 @@ SUB rv_command
     SELECT CASE st1
       CASE CHR$(13)
         st1 = rv_menu$
-        IF st1 = "" THEN _CONTINUE
+        IF st1 = "" THEN GOTO rv_next
         IF st1 <> "x" AND st1 <> "<" AND st1 <> ">" AND st1 <> "i" THEN EXIT DO
     END SELECT
     IF st1 = "i" THEN rv_inventory: EXIT DO
     SELECT CASE st1
       CASE "x"
-        IF rv_monster THEN rv_say "A creature is in view.": _CONTINUE
+        IF rv_monster THEN rv_say "A creature is in view.": GOTO rv_next
         rv_mode = 1: rv_newlevel
       CASE "<", ">"
         want = 5: IF st1 = ">" THEN want = 13
@@ -53,6 +53,7 @@ SUB rv_command
     IF st1 <> "" THEN lastx = localx: lasty = localy: EXIT DO
     m = rv_mode: rv_mode = 0
     IF m = 1 THEN rv_say "Nothing left to explore here." ELSE rv_say "No known stairs that way."
+    rv_next:
   LOOP
 END SUB
 
@@ -337,7 +338,7 @@ SUB rv_inventory
         IF t >= 6 THEN m$ = m$ + "f  Figure out" + CHR$(10)
         m$ = m$ + "t  Throw" + CHR$(10) + "d  Drop" + CHR$(10) + "X  Examine"
         c = rv_list(" " + LEFT$(RTRIM$(gdy(i)), 30) + " ", m$, 2)
-        IF c = 0 THEN _CONTINUE
+        IF c = 0 THEN GOTO rv_inext
         FOR j = 1 TO c - 1: m$ = MID$(m$, INSTR(m$, CHR$(10)) + 1): NEXT
         a$ = LEFT$(m$, 1)
       CASE "+": a$ = rv_main$(i)
@@ -358,5 +359,6 @@ SUB rv_inventory
       CASE ELSE: rv_q$ = CHR$(96 + i) + rv_q$
     END SELECT
     EXIT SUB
+    rv_inext:
   LOOP
 END SUB

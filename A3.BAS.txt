@@ -142,14 +142,14 @@ SUB DamSuit (i, dam)
   remnum = 0: yup = false
   FOR j = 1 TO ngoody
     IF goody(j, 1) = -8 AND cRoll(300) = 1 THEN
-      lsdtyp = goody(j, 11)
-      SELECT CASE lsdtyp
+      lsdt = goody(j, 11)
+      SELECT CASE lsdt
         CASE 1, 2, 3, 7, 18, 19, 20
           SELECT CASE i
-            CASE 1: IF lsdtyp <> 1 AND lsdtyp <> 19 AND lsdtyp <> 7 THEN yup = true 'rad
-            CASE 2: IF lsdtyp <> 2 AND lsdtyp <> 1 THEN yup = true   'h/c
-            CASE 3: IF lsdtyp <> 3 AND lsdtyp <> 2 THEN yup = true   'laser
-            CASE 4: IF lsdtyp <> 7 AND lsdtyp <> 18 THEN yup = true  'elec
+            CASE 1: IF lsdt <> 1 AND lsdt <> 19 AND lsdt <> 7 THEN yup = true 'rad
+            CASE 2: IF lsdt <> 2 AND lsdt <> 1 THEN yup = true   'h/c
+            CASE 3: IF lsdt <> 3 AND lsdt <> 2 THEN yup = true   'laser
+            CASE 4: IF lsdt <> 7 AND lsdt <> 18 THEN yup = true  'elec
             CASE 5: yup = true                                       'acid
             CASE ELSE
           END SELECT

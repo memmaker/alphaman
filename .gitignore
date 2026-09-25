@@ -2,3 +2,6 @@ alphaman
 alphaman_start.command
 port/alphaman.bas
 save/
+web/build/
+web/dist/
+port/fb/alphaman.bas
