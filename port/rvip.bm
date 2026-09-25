@@ -7,6 +7,7 @@ SUB rv_command
   STATIC lastx, lasty, lastmsg
   IF rv_mode THEN
     stopit = 0
+    _LIMIT 60 ' paces the walk; on the web it also yields so the screen updates and keys arrive
     IF rv_keynow$ <> "" THEN stopit = -1 ' any key stops a walk (and is dropped)
     IF lpoint <> lastmsg THEN stopit = -1
     IF localx = lastx AND localy = lasty THEN stopit = -1 ' bumped: no progress

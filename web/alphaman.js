@@ -77,7 +77,7 @@
 		var st = Module.HEAP32.subarray(Module._rv_state() >> 2, (Module._rv_state() >> 2) + 5);
 		var vis = st[0], cx = st[1], cy = st[2], cur = st[3];
 		var p = Module._rv_pagebuf(vis), pg = Module.HEAPU8.subarray(p, p + COLS * ROWS * 2);
-		if (!st[4] && last && last.vis === vis && last.cx === cx && last.cy === cy && last.cur === cur) return;
+		/* no early return on st[4]: ALPCLIB.C writes the pages without setting dirty; the cell compare below is the check */
 		for (var y = 0; y < ROWS; y++)
 			for (var x = 0; x < COLS; x++) {
 				var i = (y * COLS + x) * 2, c = pg[i], a = pg[i + 1], key = c | (a << 8);

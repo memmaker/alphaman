@@ -506,7 +506,6 @@ void box(int lc, int rc, int tc, int bc, int nl, int fc, int pag)
 
 void creatsort(int nnear, int16_t *tentgrab, int16_t *ncre0)
 {
-  int16_t (*ncre)[51] = (int16_t (*)[51])ncre0;   /* QB array ncre(0 TO 50, 0 TO 15) */
   int i, j, offset, limit, switchit, switched, tempo;
   int cnt[51];
   int scratch[51];
@@ -514,8 +513,8 @@ void creatsort(int nnear, int16_t *tentgrab, int16_t *ncre0)
   if (nnear >50)   nnear=50;
   for(i=1;i<=nnear;i++) {
 	if (true) {    /* ncre[11][i] */
-		scratch[i] = abs(ncre[4][i]) + abs(ncre[5][i]);
-		if(ncre[6][i] < 0)   scratch[i] = -scratch[i];
+		scratch[i] = abs(ncre0[RV_NC(4, i)]) + abs(ncre0[RV_NC(5, i)]);
+		if(ncre0[RV_NC(6, i)] < 0)   scratch[i] = -scratch[i];
     }
 	 else   scratch[i] = 100+i;
     cnt[i] = i;
@@ -541,10 +540,10 @@ void creatsort(int nnear, int16_t *tentgrab, int16_t *ncre0)
   }
   if(switched) {
     for(i=1;i<=nnear;i++) {
-		for(j=1;j<=15;j++) {   temp[j][i] = ncre[j][i];   }
+		for(j=1;j<=15;j++) {   temp[j][i] = ncre0[RV_NC(j, i)];   }
     }
     for(i=1;i<=nnear;i++) {
-		for(j=1;j<=15;j++) {   ncre[j][cnt[i]] = temp[j][i];   }
+		for(j=1;j<=15;j++) {   ncre0[RV_NC(j, cnt[i])] = temp[j][i];   }
     }
 	 if(*tentgrab>0){   i=*tentgrab;   *tentgrab=cnt[i];   }
   }
@@ -552,7 +551,6 @@ void creatsort(int nnear, int16_t *tentgrab, int16_t *ncre0)
 
 int csameroom(int x1, int y1, int x2, int y2, int localx, int localy, int nnear, int16_t *ncre0)
 {
-  int16_t (*ncre)[51] = (int16_t (*)[51])ncre0;   /* QB array ncre(0 TO 50, 0 TO 15) */
 	int same = true;
 	int ddx = x2-x1;
 	int ddy = y2-y1;
@@ -579,10 +577,10 @@ int csameroom(int x1, int y1, int x2, int y2, int localx, int localy, int nnear,
 				if (isalpha(sym)) {
 					cr = 0;
 					for (j=1;j<=nnear;j++) {
-						if ((ncre[4][j] == (x-localx)) && (ncre[5][j] == (y-localy)))
+						if ((ncre0[RV_NC(4, j)] == (x-localx)) && (ncre0[RV_NC(5, j)] == (y-localy)))
 							cr = j;
 					}
-					if ( (cr>0) && (floor(ncre[8][cr] / 1000) == 9) )
+					if ( (cr>0) && (floor(ncre0[RV_NC(8, cr)] / 1000) == 9) )
 						same = false;
 				}
 			}
@@ -594,11 +592,10 @@ int csameroom(int x1, int y1, int x2, int y2, int localx, int localy, int nnear,
 
 int badmovecreat(int newx, int newy, int nnear, int cre, int16_t *ncre0)
 {
-  int16_t (*ncre)[51] = (int16_t (*)[51])ncre0;   /* QB array ncre(0 TO 50, 0 TO 15) */
   int bad = 0;
   int count = 1;
   while( (bad==0) && (count<=nnear) ) {
-    if( (ncre[4][count] == newx) && (ncre[5][count] == newy) ) {
+    if( (ncre0[RV_NC(4, count)] == newx) && (ncre0[RV_NC(5, count)] == newy) ) {
 		if(count != cre){   bad = count;   return bad;   }
     }
     count++;

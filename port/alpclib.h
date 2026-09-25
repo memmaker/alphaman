@@ -10,6 +10,15 @@
 #else
 #define RV_STATIC static
 #endif
+/* 2-D BASIC arrays seen from C: QB/QB64 store them column-major, FreeBASIC
+   row-major. pag2(1 TO 52, 1 TO 22) and ncre(0 TO 50, 0 TO 15). */
+#ifdef RV_WEB
+#define RV_P2(x, y) (((x) - 1) * 22 + ((y) - 1))
+#define RV_NC(j, i) ((i) * 16 + (j))
+#else
+#define RV_P2(x, y) (((x) - 1) + ((y) - 1) * 52)
+#define RV_NC(j, i) ((j) * 51 + (i))
+#endif
 static uint8_t *rv_page[4];
 static int16_t *rv_pag2;
 static void rv_setpage(int16_t p, intptr_t ptr) { rv_page[p] = (uint8_t *)ptr; }
@@ -18,7 +27,7 @@ RV_STATIC void rv_setpag2(intptr_t ptr) { rv_pag2 = (int16_t *)ptr; }
 /* pag2(col,row) read like the unchecked DOS build: out-of-range indices land
    on the neighbouring cell of the same array; beyond the array reads 0. */
 RV_STATIC int16_t rv_pag2get(int x, int y) {
-  int i = (x - 1) + (y - 1) * 52;
+  int i = RV_P2(x, y);
   return (i >= 0 && i < 52 * 22) ? rv_pag2[i] : 0;
 }
 static int sgn(int n) { return n < 0 ? -1 : n > 0; }
@@ -37,7 +46,7 @@ RV_STATIC int16_t cgetsym(int x, int y, int pag) {
 RV_STATIC void cputsym(int sym, int x, int y, int fc, int bc, int pag) {
   if (x < 1 || x > 80 || y < 1 || y > 25) return;   /* BASIC PutSym's check */
   if (pag == 2) {
-    if (x <= 52 && y <= 22) rv_pag2[(x - 1) + (y - 1) * 52] = sym + fc * 256 + bc * 4096;
+    if (x <= 52 && y <= 22) rv_pag2[RV_P2(x, y)] = sym + fc * 256 + bc * 4096;
     return;
   }
   uint8_t *c = rv_page[pag] + ((y - 1) * 80 + (x - 1)) * 2;
