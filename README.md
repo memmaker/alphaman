@@ -1,3 +1,15 @@
+# AlphaMan for macOS (QB64-PE port)
+
+Fork of [superjamie/alphaman-src @ dda5598](https://github.com/superjamie/alphaman-src/commit/dda5598) —
+[all changes since upstream](https://github.com/memmaker/alphaman/compare/dda5598...main).
+
+Build: QB64-PE (`QB64=/path/to/qb64pe port/build.sh`). Play: `./play.sh [name]`.
+Added: `x` auto-explore, `<`/`>` walk to known stairs, Enter = command menu,
+`i` inventory with cursor and item menus, numeric keypad movement.
+No tiles or sound (none exist for this game). No web build: QB64 has no wasm target.
+
+---
+
 # Alphaman Source and Files
 
 Source code and related files for the 1995 DOS roguelike game Alphaman by
