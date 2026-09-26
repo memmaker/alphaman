@@ -4,6 +4,7 @@
    clicks come from JS (rv_pushkey, rv_click). ALPCLIB.C (alpclib.h) is
    included here so the game's C reads the same pages. */
 #include <emscripten.h>
+#include <strings.h>
 #include "fb.h"   /* fbc/src/rtlib: FBSTRING, fb_ConHooks, fb_ConPrintTTY */
 
 #define COLS 80
@@ -196,3 +197,32 @@ int16_t rv_mx(void) { return mx; }
 int16_t rv_my(void) { return my; }
 int16_t rv_mb(void) { return mb; }
 void rv_wait(int16_t ms) { emscripten_sleep(ms > 0 ? ms : 1); }
+
+/* Run report (roguelikes-index/server/CONTRACT.md) from SUB Dead: spec 0 died,
+   2 quit without saving, 3 retired (the win); 1 (quit and save) is no run end.
+   Fire-and-forget GET, never throws. Negative ints are omitted. */
+EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const char *killer, int depth, int score, int turns, int lvl), {
+    try {
+        var p = [['g', UTF8ToString(g)], ['ev', UTF8ToString(ev)], ['name', name ? UTF8ToString(name) : ''],
+                 ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
+        var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
+                 .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
+        fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
+    } catch (e) {}
+});
+void rv_beacon(int16_t spec, FBSTRING *killer, FBSTRING *who, int16_t depth, int32_t score, int16_t lvl)
+{
+    const char *k = killer && killer->data ? killer->data : NULL, *ev = spec == 3 ? "win" : spec == 2 ? "quit" : "death";
+    char n[64] = "";
+    if (who && who->data) {                 /* name$ is space padded */
+        const char *s = who->data; while (*s == ' ') s++;
+        snprintf(n, sizeof n, "%s", s);
+        for (int i = strlen(n); i > 0 && n[i - 1] == ' '; ) n[--i] = 0;
+    }
+    if (spec != 0) k = NULL;
+    else if (k) {
+        while (*k == ' ') k++;
+        if (!strncmp(k, "a ", 2)) k += 2; else if (!strncmp(k, "an ", 3)) k += 3; else if (!strncasecmp(k, "the ", 4)) k += 4;
+    }
+    js_beacon("alphaman", ev, n, k, depth, score, -1, lvl);
+}
