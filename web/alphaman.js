@@ -328,6 +328,7 @@
 		ctx = cv.getContext('2d');
 		cv.style.imageRendering = 'pixelated';
 		cv.addEventListener('click', onClick);
+		RvipWM.dropdown($('btn-file'), $('file-menu'));
 		$('btn-export').onclick = exportSave;
 		$('btn-import').onclick = function () { $('import-file').click(); };
 		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
