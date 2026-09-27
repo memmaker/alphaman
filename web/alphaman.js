@@ -20,7 +20,7 @@
 	var NUMPAD = [27, 79, 80, 81, 75, 76, 77, 71, 72, 73];
 	var KEYS = { Enter: 13, Escape: 27, Backspace: 8, Tab: 9 };
 
-	var running = false, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0;
+	var app, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0;
 
 	/* message log: new text on the message rows goes to #log */
 	var logRows = {}, logTail = [];
@@ -41,10 +41,6 @@
 		l.scrollTop = l.scrollHeight;   /* newest message always in view */
 	}
 	function $(id) { return document.getElementById(id); }
-	function status(msg, isError) {
-		var s = $('status');
-		s.textContent = msg; s.hidden = !msg; s.classList.toggle('error', !!isError);
-	}
 
 	/* ---------- drawing ---------- */
 	function buildAtlas() {
@@ -97,23 +93,19 @@
 		for (var y = 22; y < 25; y++) { var s = ''; for (var x = 0; x < 51; x++) s += String.fromCharCode(pg[(y * COLS + x) * 2] || 32); logRow(y, s); }
 	}
 	function frame() {
-		if (running) draw();
+		if (app.running) draw();
 		requestAnimationFrame(frame);
 	}
 	function zoom(d) {
 		auto = false;
 		scale = Math.max(1, Math.min(6, scale + d));
 		size(); draw();
-		try { Module.FS.writeFile(DIR + '/web-zoom.json', JSON.stringify({ scale: scale })); syncFiles(); } catch (e) { }
+		try { Module.FS.writeFile(DIR + '/web-zoom.json', JSON.stringify({ scale: scale })); app.sync(); } catch (e) { }
 	}
 
 	/* ---------- input ---------- */
 	function onKey(e) {
-		if (!$('help').hidden) {
-			if (e.key === 'Escape') { $('help').hidden = true; e.preventDefault(); }
-			return;
-		}
-		if (!running || e.isComposing || e.metaKey) return;
+		if (!app.running || e.isComposing || e.metaKey) return;
 		var k = e.key, code = e.code || '', m = /^Numpad(\d)$/.exec(code), c;
 		if (m) c = NUMPAD[+m[1]] === 27 ? 27 : NUMPAD[+m[1]] << 8;
 		else if (code === 'NumpadEnter') c = 13;
@@ -134,83 +126,40 @@
 		e.preventDefault();
 	}
 	function onClick(e) {
-		if (!running) return;
+		if (!app.running) return;
 		var r = cv.getBoundingClientRect();
 		var x = Math.floor((e.clientX - r.left) / scale / CW) + 1, y = Math.floor((e.clientY - r.top) / scale / CH) + 1;
 		if (x >= 1 && x <= COLS && y >= 1 && y <= ROWS) Module._rv_click(x, y, 1);
 	}
 
 	/* ---------- saves: IndexedDB (IDBFS) ---------- */
-	var syncing = false, syncAgain = false, pendingCbs = [];
-	function syncFiles(cb) {
-		if (!Module.FS) { if (cb) cb(); return; }
-		if (typeof cb === 'function') pendingCbs.push(cb);
-		if (syncing) { syncAgain = true; return; }
-		syncing = true;
-		var cbs = pendingCbs; pendingCbs = [];
-		Module.FS.syncfs(false, function (err) {
-			syncing = false;
-			if (err) status('Saving to browser storage (IndexedDB) failed: ' + err + '. Use "Export save" to keep a copy.', true);
-			cbs.forEach(function (f) { f(err); });
-			if (syncAgain) { syncAgain = false; syncFiles(); }
-		});
-	}
 	/* the game's own files in /save: NAME.ALF and the map files, not the data files */
 	function saveFiles() {
 		return Module.FS.readdir(DIR).filter(function (f) { return f[0] !== '.' && !/^alphaman\.[1-6]$/.test(f) && !/\.json$/.test(f); });
 	}
 	function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
 	function unb64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
-	function exportSave() {
+	function clearSaves() { saveFiles().forEach(function (f) { Module.FS.unlink(DIR + '/' + f); }); }
+	/* Export save: the save files as one JSON bundle, written to /tmp for RvipApp to download */
+	function bundleFile() {
 		var files = saveFiles();
-		if (!files.length) { status('There is no saved game yet.', true); setTimeout(function () { status(''); }, 2000); return; }
+		if (!files.length) return null;
 		var bundle = {};
 		files.forEach(function (f) { bundle[f] = b64(Module.FS.readFile(DIR + '/' + f)); });
-		var a = document.createElement('a');
-		a.href = URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: 'application/json' }));
-		a.download = 'alphaman-save.json';
-		document.body.appendChild(a); a.click();
-		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+		Module.FS.writeFile('/tmp/alphaman-save.json', JSON.stringify(bundle));
+		return '/tmp/alphaman-save.json';
 	}
-	function importSave(file) {
-		var r = new FileReader();
-		r.onload = function () {
-			var bundle;
-			try { bundle = JSON.parse(r.result); } catch (e) { status('Not an AlphaMan save bundle.', true); return; }
-			if (!confirm('Replace the saved games in this browser with "' + file.name + '"?')) return;
-			running = false;
-			saveFiles().forEach(function (f) { Module.FS.unlink(DIR + '/' + f); });
-			Object.keys(bundle).forEach(function (f) { if (!/[\/\\]/.test(f)) Module.FS.writeFile(DIR + '/' + f, unb64(bundle[f])); });
-			syncFiles(function (err) { if (!err) location.reload(); });
-		};
-		r.readAsText(file);
-	}
-	function newGame() {
-		if (!confirm('Delete the saved games in this browser and start over?')) return;
-		running = false;
-		saveFiles().forEach(function (f) { Module.FS.unlink(DIR + '/' + f); });
-		syncFiles(function (err) { if (!err) location.reload(); });
+	function putBundle(file, data) {
+		var bundle;
+		try { bundle = JSON.parse(new TextDecoder().decode(data)); } catch (e) { return 'Not an AlphaMan save bundle.'; }
+		Object.keys(bundle).forEach(function (f) { if (!/[\/\\]/.test(f)) Module.FS.writeFile(DIR + '/' + f, unb64(bundle[f])); });
 	}
 	function autosave() {
-		if (!running || !wantSaveFlag) return;
+		if (!app.running || !wantSaveFlag) return;
 		var now = performance.now();
 		if (now - lastSave < 2000 && !document.hidden) return;
 		wantSaveFlag = false; lastSave = now;
-		syncFiles();
-	}
-
-	/* ---------- help ---------- */
-	var helpLoaded = false;
-	function toggleHelp() {
-		var h = $('help');
-		h.hidden = !h.hidden;
-		if (!h.hidden && !helpLoaded) {
-			helpLoaded = true;
-			fetch('help.html').then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-				.then(function (t) { $('help-body').innerHTML = t; })
-				.catch(function (err) { helpLoaded = false; $('help-body').textContent = 'Could not load the guide (' + err + '). Press ? in the game for its own help.'; });
-		}
-		if (!h.hidden) $('help-body').focus();
+		app.sync();
 	}
 
 	/* ---------- startup ---------- */
@@ -261,6 +210,7 @@
 		};
 		return;
 	}
+	app = RvipApp({ name: 'alphaman', save: bundleFile, clear: clearSaves, put: putBundle });
 	window.Module = {
 		arguments: [],
 		preRun: [function () {
@@ -270,7 +220,7 @@
 			FS.chdir(DIR);
 			Module.addRunDependency('idbfs');
 			FS.syncfs(true, function (err) {
-				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
+				if (err) app.status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				try { scale = JSON.parse(FS.readFile(DIR + '/web-zoom.json', { encoding: 'utf8' })).scale || 0; } catch (e) { scale = 0; }
 				/* the game loads a save only when given its name (ALPHAMAN NAME
 				   under DOS; here ALPHA_NAME): continue the newest saved character */
@@ -291,39 +241,25 @@
 			if (auto) scale = fit();
 			size();
 			$('game').hidden = false;
-			running = true; status('');
+			app.running = true; app.status('');
 			requestAnimationFrame(frame);
 			setInterval(autosave, 500);
 		},
 		onExit: function (code) {
-			running = false;
-			syncFiles(function () {
+			app.running = false;
+			app.sync(function () {
 				$('overlay-msg').textContent = 'Play again to continue a saved character or start a new one.';
 				$('overlay').hidden = false;
 			});
 		},
 		print: function (s) { console.log(s); },
 		printErr: function (s) { console.warn(s); },
-		setStatus: function (s) { if (s && !running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
-		onAbort: function (what) { crashed(what); }
+		setStatus: function (s) { if (s && !app.running) app.status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
+		onAbort: function (what) { app.crashed(what); }
 	};
-	function crashed(err) {
-		if (!running) return;
-		running = false;
-		var msg = (err && (err.message || err.reason && err.reason.message)) || String(err);
-		console.error('[alphaman] crash:', err);
-		status('The game crashed (' + msg + '). Reload the page to continue from the last autosave.', true);
-	}
-	window.addEventListener('unhandledrejection', function (e) {
-		if (e.reason && e.reason.name === 'ExitStatus') return;   /* exit() is the normal end */
-		crashed(e.reason);
-	});
-	window.addEventListener('error', function (e) {
-		if (e.error && e.error.name === 'ExitStatus') return;
-		if (e.error instanceof WebAssembly.RuntimeError || /alphaman-core/.test(e.filename || '')) crashed(e.error || e.message);
-	});
-	document.addEventListener('visibilitychange', function () { if (document.hidden) wantSaveFlag = true; });
-	window.addEventListener('resize', function () { if (auto && running) { scale = fit(); size(); draw(); } });
+	document.addEventListener('visibilitychange', function () { if (document.hidden) app.sync(); });
+	window.addEventListener('pagehide', function () { app.sync(); });
+	window.addEventListener('resize', function () { if (auto && app.running) { scale = fit(); size(); draw(); } });
 	document.addEventListener('keydown', onKey);
 	document.addEventListener('DOMContentLoaded', function () {
 		cv = document.querySelector('#game canvas');
@@ -331,12 +267,6 @@
 		cv.style.imageRendering = 'pixelated';
 		cv.addEventListener('click', onClick);
 		RvipWM.dropdown($('btn-file'), $('file-menu'));
-		$('btn-export').onclick = exportSave;
-		$('btn-import').onclick = function () { $('import-file').click(); };
-		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
-		$('btn-new').onclick = newGame;
-		$('btn-help').onclick = toggleHelp;
-		$('help-close').onclick = toggleHelp;
 		$('btn-zoom-in').onclick = function () { zoom(1); };
 		$('btn-zoom-out').onclick = function () { zoom(-1); };
 		$('btn-restart').onclick = function () { location.reload(); };
