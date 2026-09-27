@@ -36,7 +36,9 @@
 			if (logTail.indexOf(s) >= 0) return;
 			logTail.push(s); if (logTail.length > 3) logTail.shift();
 		}
-		RvipWM.log($('log'), s);
+		var l = $('log');
+		RvipWM.log(l, s);
+		l.scrollTop = l.scrollHeight;   /* newest message always in view */
 	}
 	function $(id) { return document.getElementById(id); }
 	function status(msg, isError) {
