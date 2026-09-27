@@ -7,12 +7,12 @@ SUB rv_command
   STATIC lastx, lasty, lastmsg
   IF rv_mode THEN
     stopit = 0
-    _LIMIT 60 ' paces the walk; on the web it also yields so the screen updates and keys arrive
+    _LIMIT 25 ' 40 ms a step, so each step is painted; on the web it also yields so the screen updates and keys arrive
     IF rv_keynow$ <> "" THEN stopit = -1 ' any key stops a walk (and is dropped)
     IF lpoint <> lastmsg THEN stopit = -1
     IF localx = lastx AND localy = lasty THEN stopit = -1 ' bumped: no progress
     IF rv_monster THEN stopit = -1
-    IF rv_mode >= 2 THEN IF currsym = 240 AND currf = 5 + 8 * (rv_mode = 3) * -1 THEN stopit = 0 ' arrived: climb
+    IF rv_mode >= 2 THEN IF currsym = 240 AND currf = 5 + 8 * (rv_mode = 3) * -1 THEN stopit = -1 ' arrived: stop, the player presses < or > again to take the stairs
     IF stopit THEN
       rv_mode = 0
     ELSE
@@ -122,16 +122,10 @@ FUNCTION rv_target (x, y)
 END FUNCTION
 
 ' One step (as a keypad key) towards the nearest target, "" if none.
-' Arriving on stairs returns the stair key itself.
 FUNCTION rv_step$
   IF localx < 2 OR localx > 51 OR localy < 2 OR localy > 21 THEN EXIT FUNCTION ' not on the local map
   rv_newlevel
   rv_vis(localx, localy) = -1
-  IF rv_mode >= 2 THEN
-    IF currsym = 240 AND currf = 5 + 8 * (rv_mode = 3) * -1 THEN
-      rv_step$ = MID$("<>", rv_mode - 1, 1): rv_mode = 0: EXIT FUNCTION
-    END IF
-  END IF
   DIM px(1 TO 1040), py(1 TO 1040), fx(1 TO 52, 1 TO 22), fy(1 TO 52, 1 TO 22)
   REDIM seen(1 TO 52, 1 TO 22)
   h = 1: t = 1: px(1) = localx: py(1) = localy: seen(localx, localy) = -1

@@ -42,7 +42,7 @@ KEY_HINTS = [
     ('x', 'Auto-explore: walk to unexplored places and unvisited items'),
     ('Enter', 'Menu of all commands'),
     ('i', 'Possessions with a cursor: Enter = everything you can do with the item'),
-    ('<', 'Go down (walks to the nearest known stairs or lair entrance)'),
+    ('<', 'Go down (walks to the nearest known stairs or lair entrance; press again there)'),
 ]
 
 
