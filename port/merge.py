@@ -24,7 +24,7 @@ fixes = [("WHILE st1 = \"\": st1 = INKEY$: WEND", "st1 = rv_key$"),
          ("INPUT \" \", Comm$", "PRINT \" \";: Comm$ = rv_line$"),
 ]
 fb_fixes = [(r"CLEAR , , 10000: ", ""), (r"Comm\$ = COMMAND\$", "Comm$ = ENVIRON$(\"ALPHA_NAME\")"),   # argv is empty under Asyncify; JS sets ALPHA_NAME
-            (r"\b_LIMIT 100\b", "rv_wait 10"), (r"\b_LIMIT 60\b", "rv_wait 16"),
+            (r"\b_LIMIT 100\b", "rv_wait 10"), (r"\b_LIMIT 60\b", "rv_wait 16"), (r"\b_LIMIT 25\b", "rv_wait 40"),
             (r"(WHILE ABS\([^)]*\) < [^:]+:(?: t2! = TIMER:)?) WEND", r"\1 rv_wait 1: WEND"),   # TIMER busy-waits must yield or the page freezes
             (r"^  KillBadMaps 0 ", "  IF spec <> 1 THEN rv_beacon spec, killedby$, name$, castlelevel * -(incastle <> 0) + (incastle = 0), expr&, lvl\n  KillBadMaps 0 "),   # run report (SUB Dead, after a medkit save)
             (r"\b_MOUSEINPUT\b", "rv_mousein"), (r"\b_MOUSEBUTTON\(1\)", "rv_mb"), (r"\b_MOUSEX\b", "rv_mx"), (r"\b_MOUSEY\b", "rv_my")]
