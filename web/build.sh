@@ -14,7 +14,7 @@ python3 port/merge.py fb
 mkdir -p web/build web/dist
 "$FBC" -lang qb -gen gcc -r -target js-asmjs -m alphaman -maxerr 30 port/fb/alphaman.bas
 mv port/fb/alphaman.c web/build/
-emcc -O2 -w -fno-strict-aliasing -fwrapv -Iport -I"$FBSRC/src/rtlib" \
+emcc -O2 -fno-strict-aliasing -fwrapv -Iport -I"$FBSRC/src/rtlib" \
   web/build/alphaman.c port/fb/console.c "$FBSRC/lib/freebasic/js-wasm32/libfb.a" \
   -sASYNCIFY -sASYNCIFY_STACK_SIZE=131072 -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME=1 \
   -lidbfs.js -lnodefs.js -sEXPORTED_RUNTIME_METHODS=FS,ENV,ccall,HEAPU8,HEAPU16,HEAP32,NODEFS,IDBFS \
