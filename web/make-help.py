@@ -31,7 +31,7 @@ SAVING = '''<ul>
 </ul>'''
 
 WEB = '''<ul>
-<li>The original 80×25 text screen with the IBM VGA font and the 16 CGA colours, scaled by whole pixels. <em>Zoom −</em> / <em>Zoom +</em> change the size.</li>
+<li>The original 80×25 text screen with the IBM VGA font and the 16 CGA colours, scaled by whole pixels to fit the Map window; <em>A−</em> / <em>A+</em> on its title bar (shown on hover) change the size. The Messages window keeps the game's messages; its own <em>A−</em> / <em>A+</em> and the <em>Font</em> menu set its text. <em>Windows ▾</em> shows, hides and rearranges the two windows (drag a title bar or the gap between them).</li>
 <li><strong>Keys:</strong> the numeric keypad or the arrow keys move you (keypad <kbd>5</kbd> rests, <kbd>0</kbd> is Escape); <kbd>F1</kbd>–<kbd>F7</kbd> switch the side panels as in DOS.</li>
 <li>Browsers keep a few shortcuts for themselves (<kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd>, <kbd>Ctrl+N</kbd>, and <kbd>Cmd</kbd> shortcuts on a Mac), so those never reach the game. <kbd>F5</kbd> and <kbd>F6</kbd> are caught by the page so the browser does not reload.</li>
 <li>If the game ever crashes, a message appears at the top; reload the page to continue from the last autosave.</li>

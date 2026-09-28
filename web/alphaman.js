@@ -1,8 +1,9 @@
 /*
  * AlphaMan in the browser: draws the DOS text pages of port/fb/console.c
  * (80x25 char+attr cells, VGA 9x16 font, 16 CGA colours) on one canvas,
- * scaled by whole pixels. Keyboard and clicks go to the C side; saves live in
- * IndexedDB (IDBFS, /save). Loaded before alphaman-core.js.
+ * scaled by whole pixels, in a Map window next to Messages (../rvip-wm.js).
+ * Keyboard and clicks go to the C side; saves live in IndexedDB (IDBFS,
+ * RvipApp.dir = /alphaman). Loaded before alphaman-core.js.
  * Under node (web/test.sh) it only mounts the run directory: the game reads
  * keys from ALPHA_KEYS and writes ALPHA_DUMP, like the Mac build.
  */
@@ -10,7 +11,7 @@
 	'use strict';
 
 	var NODE = typeof window === 'undefined';
-	var DIR = '/save', COLS = 80, ROWS = 25, CW = 9, CH = 16, DATA = ['1', '2', '3', '4', '5', '6'];
+	var DIR = NODE ? '/run' : RvipApp.dir, OLD = '/save', COLS = 80, ROWS = 25, CW = 9, CH = 16, DATA = ['1', '2', '3', '4', '5', '6'];
 	var PAL = ['#000000', '#0000aa', '#00aa00', '#00aaaa', '#aa0000', '#aa00aa', '#aa5500', '#aaaaaa',
 		'#555555', '#5555ff', '#55ff55', '#55ffff', '#ff5555', '#ff55ff', '#ffff55', '#ffffff'];
 	/* DOS scan codes (INKEY$ = CHR$(0) + CHR$(code)); keypad digits are the
@@ -20,7 +21,8 @@
 	var NUMPAD = [27, 79, 80, 81, 75, 76, 77, 71, 72, 73];
 	var KEYS = { Enter: 13, Escape: 27, Backspace: 8, Tab: 9 };
 
-	var app, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0;
+	var app, cv, ctx, atlas, scale = 2, auto = true, wantSaveFlag = false, lastSave = 0, wm, L = {};
+	var LAYOUT = '/web-layout.json';   /* in DIR: windows, map scale (0 = fit), Messages font */
 
 	/* message log: new text on the message rows goes to #log */
 	var logRows = {}, logTail = [];
@@ -63,7 +65,7 @@
 		a.putImageData(img, 0, 0);
 	}
 	function fit() {
-		var g = $('game'), s = Math.floor(Math.min(g.clientWidth / (COLS * CW), g.clientHeight / (ROWS * CH)));
+		var g = document.querySelector('#t-map .body'), s = Math.floor(Math.min(g.clientWidth / (COLS * CW), g.clientHeight / (ROWS * CH)));
 		return Math.max(1, Math.min(6, s));
 	}
 	function size() {
@@ -96,11 +98,21 @@
 		if (app.running) draw();
 		requestAnimationFrame(frame);
 	}
-	function zoom(d) {
+	function zoom(d) {   /* A− / A+ on the Map title bar: whole-pixel steps */
 		auto = false;
 		scale = Math.max(1, Math.min(6, scale + d));
 		size(); draw();
-		try { Module.FS.writeFile(DIR + '/web-zoom.json', JSON.stringify({ scale: scale })); app.sync(); } catch (e) { }
+		L.scale = scale; saveLayout();
+	}
+	function saveLayout() {
+		try { Module.FS.writeFile(DIR + LAYOUT, JSON.stringify(L)); app.sync(); } catch (e) { }
+	}
+	/* Messages font: a face from the index page's fonts/ (web/build.sh lists them) */
+	function loadFace(n) {
+		var set = function () { $('log').style.fontFamily = n ? '"' + n + '", ui-monospace, Menlo, monospace' : ''; };
+		if (!n) return set();
+		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
+		ff.load().then(function () { document.fonts.add(ff); set(); }).catch(function () { app.status('Could not load the font ' + n + '.', true); });
 	}
 
 	/* ---------- input ---------- */
@@ -133,9 +145,27 @@
 	}
 
 	/* ---------- saves: IndexedDB (IDBFS) ---------- */
-	/* the game's own files in /save: NAME.ALF and the map files, not the data files */
-	function saveFiles() {
-		return Module.FS.readdir(DIR).filter(function (f) { return f[0] !== '.' && !/^alphaman\.[1-6]$/.test(f) && !/\.json$/.test(f); });
+	/* the game's own files in DIR: NAME.ALF and the map files, not the data files */
+	function ours(f) { return f[0] !== '.' && !/^alphaman\.[1-6]$/.test(f) && !/\.json$/.test(f); }
+	function saveFiles() { return Module.FS.readdir(DIR).filter(ours); }
+	/* until 2026-09 the saves were in /save, an IndexedDB name old omega used too:
+	   move AlphaMan's files over once (never omega's) */
+	function moveOld(done) {
+		var FS = Module.FS;
+		if (saveFiles().length || L.moved) return done();
+		L.moved = 1;
+		try { FS.writeFile(DIR + LAYOUT, JSON.stringify(L)); } catch (e) { }
+		(indexedDB.databases ? indexedDB.databases() : Promise.resolve([{ name: OLD }])).then(function (dbs) {
+			if (!dbs.some(function (d) { return d.name === OLD; })) return done();
+			FS.mkdirTree(OLD); FS.mount(Module.IDBFS, {}, OLD);
+			FS.syncfs(true, function () {
+				FS.readdir(OLD).forEach(function (f) {
+					if (f[0] === '.' || /^omega/i.test(f)) return;
+					try { if (ours(f)) FS.writeFile(DIR + '/' + f, FS.readFile(OLD + '/' + f)); if (!/\.json$/.test(f)) FS.unlink(OLD + '/' + f); } catch (e) { }
+				});
+				FS.syncfs(false, function () { FS.unmount(OLD); done(); });
+			});
+		}, function () { done(); });
 	}
 	function clearSaves() { saveFiles().forEach(function (f) { Module.FS.unlink(DIR + '/' + f); }); }
 	/* Export save: the save files as one JSON bundle {NAME.ALF: base64, ...} (rvip-app.js) */
@@ -211,8 +241,10 @@
 			FS.chdir(DIR);
 			Module.addRunDependency('idbfs');
 			FS.syncfs(true, function (err) {
+				try { L = JSON.parse(FS.readFile(DIR + LAYOUT, { encoding: 'utf8' })) || {}; } catch (e) { L = {}; }
+				moveOld(function () {
 				if (err) app.status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
-				try { scale = JSON.parse(FS.readFile(DIR + '/web-zoom.json', { encoding: 'utf8' })).scale || 0; } catch (e) { scale = 0; }
+				scale = L.scale || 0;
 				/* the game loads a save only when given its name (ALPHAMAN NAME
 				   under DOS; here ALPHA_NAME): continue the newest saved character */
 				var newest = null, t = 0;
@@ -223,15 +255,26 @@
 				});
 				if (newest) Module.ENV.ALPHA_NAME = newest;
 				Module.removeRunDependency('idbfs');
-			});
+			}); });
 		}],
 		onRuntimeInitialized: function () {
 			copyData();   /* the embedded /data exists only now (static constructors) */
 			buildAtlas();
+			$('game').hidden = false;
+			wm = RvipWM({
+				area: $('game'), menu: $('btn-layout'),
+				wins: [{ id: 'map', title: 'Map' }, { id: 'msg', title: 'Messages' }],
+				multi: { d: 'h', r: 0.76, a: 'map', b: 'msg' }, single: 'map',
+				state: L.wm || null,
+				save: function (st) { L.wm = st; saveLayout(); },
+				layout: function () { if (atlas && auto) { scale = fit(); size(); } },
+				zoom: { map: function (size, d) { zoom(d); } }   /* the DOS screen: whole-pixel scale steps */
+			});
 			auto = !scale;
+			wm.apply();
 			if (auto) scale = fit();
 			size();
-			$('game').hidden = false;
+			$('sel-font').value = L.face || ''; loadFace(L.face);
 			app.running = true; app.status('');
 			requestAnimationFrame(frame);
 			setInterval(autosave, 500);
@@ -250,16 +293,19 @@
 	};
 	document.addEventListener('visibilitychange', function () { if (document.hidden) app.sync(); });
 	window.addEventListener('pagehide', function () { app.sync(); });
-	window.addEventListener('resize', function () { if (auto && app.running) { scale = fit(); size(); draw(); } });
+	window.addEventListener('resize', function () { if (wm) wm.apply(); });
 	document.addEventListener('keydown', onKey);
 	document.addEventListener('DOMContentLoaded', function () {
 		cv = document.querySelector('#game canvas');
 		ctx = cv.getContext('2d');
 		cv.style.imageRendering = 'pixelated';
 		cv.addEventListener('click', onClick);
-		RvipWM.dropdown($('btn-file'), $('file-menu'));
-		$('btn-zoom-in').onclick = function () { zoom(1); };
-		$('btn-zoom-out').onclick = function () { zoom(-1); };
+		RvipWM.dropdown($('btn-file'), $('menu-file'));
+		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
+			list.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n.replace(/^Web(Plus|437)_/, '').replace(/_/g, ' '); $('sel-font').appendChild(o); });
+			$('sel-font').value = L.face || '';
+		}).catch(function () { });
+		$('sel-font').onchange = function () { L.face = this.value; saveLayout(); loadFace(this.value); this.blur(); };
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });

@@ -35,13 +35,21 @@
 		background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; max-width: 90vw; }
 	#status.error { border-color: #b44; color: #f99; }
 
-		#game { position: absolute; left: 0; right: 300px; top: 32px; bottom: 0; overflow: auto; background: #000;
-		display: flex; align-items: flex-start; justify-content: center; }
+	#bar select { background: #22222a; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font: inherit; cursor: pointer; }
+	#bar .hint kbd { font-size: 11px; line-height: 1.3; min-width: 0; }
+
+	/* Tiling area: Map and Messages, placed by ../rvip-wm.js */
+	#game { position: absolute; left: 0; right: 0; top: 32px; bottom: 0; overflow: hidden; background: var(--gut); }
+	.win { position: absolute; background: #000; border: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+	.win > .t { flex: none; display: flex; align-items: center; font-size: 11px; height: 20px; padding: 0 2px 0 6px;
+		color: var(--dim); background: var(--panel); border-bottom: 1px solid var(--line); }
+	.win > .t .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.win > .t .name:hover { color: var(--text); }
+	.win > .body { flex: 1; min-height: 0; overflow: auto; }
+	#t-map .body { display: flex; align-items: flex-start; justify-content: center; }
 	#game canvas { display: block; }
-	#log { position: absolute; right: 0; width: 300px; top: 32px; bottom: 0; overflow: auto; padding: 6px 8px; box-sizing: border-box;
-		background: var(--panel); border-left: 1px solid var(--line); font: 13px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+	#log { padding: 6px 8px; background: var(--panel); font: 13px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
 	#log div + div { border-top: 1px solid var(--line); }
-	@media (max-width: 700px) { #log { display: none; } #game { right: 0 !important; } }
 	#overlay, #help { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex;
 		align-items: center; justify-content: center; z-index: 10; }
 	#overlay[hidden], #help[hidden], #status[hidden], #game[hidden] { display: none; }
@@ -83,8 +91,8 @@
 	<button id="btn-help" title="Game guide, controls and saving">Help</button>
 	<button id="btn-file" title="Saves and new game">File ▾</button>
 	<span class="sep"></span>
-	<button id="btn-zoom-out" title="Smaller text">A−</button>
-	<button id="btn-zoom-in" title="Bigger text">A+</button>
+	<button id="btn-layout" title="Show, hide and arrange the windows">Windows ▾</button>
+	<select id="sel-font" title="Font for the Messages window (the map is the DOS screen)"><option value="">Font: default</option></select>
 	<input type="file" id="import-file" hidden>
 	<span class="sp"></span>
 	<span class="hint"><kbd>x</kbd> explore · <kbd>i</kbd> inventory · <kbd>Enter</kbd> command menu · <kbd>?</kbd> command help</span>
@@ -92,8 +100,10 @@
 
 <div id="status">Loading AlphaMan…</div>
 
-<div id="log" aria-label="Messages"></div>
-<div id="game" hidden><canvas></canvas></div>
+<div id="game" hidden>
+	<div class="win" id="t-map"><div class="t"><span class="name">Map</span></div><div class="body"><canvas></canvas></div></div>
+	<div class="win" id="t-msg"><div class="t"><span class="name">Messages</span></div><div class="body" id="log" aria-label="Messages"></div></div>
+</div>
 
 <div id="help" hidden>
 	<div class="panel" role="dialog" aria-label="AlphaMan guide">
@@ -102,7 +112,7 @@
 	</div>
 </div>
 
-<div id="file-menu">
+<div id="menu-file">
 	<button id="btn-export" title="Download the save file">Export save</button>
 	<button id="btn-import" title="Load a save file from disk">Import save</button>
 	<hr>
