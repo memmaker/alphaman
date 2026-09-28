@@ -137,22 +137,13 @@
 	function saveFiles() {
 		return Module.FS.readdir(DIR).filter(function (f) { return f[0] !== '.' && !/^alphaman\.[1-6]$/.test(f) && !/\.json$/.test(f); });
 	}
-	function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
-	function unb64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
 	function clearSaves() { saveFiles().forEach(function (f) { Module.FS.unlink(DIR + '/' + f); }); }
-	/* Export save: the save files as one JSON bundle, written to /tmp for RvipApp to download */
-	function bundleFile() {
-		var files = saveFiles();
-		if (!files.length) return null;
-		var bundle = {};
-		files.forEach(function (f) { bundle[f] = b64(Module.FS.readFile(DIR + '/' + f)); });
-		Module.FS.writeFile('/tmp/alphaman-save.json', JSON.stringify(bundle));
-		return '/tmp/alphaman-save.json';
-	}
-	function putBundle(file, data) {
-		var bundle;
-		try { bundle = JSON.parse(new TextDecoder().decode(data)); } catch (e) { return 'Not an AlphaMan save bundle.'; }
-		Object.keys(bundle).forEach(function (f) { if (!/[\/\\]/.test(f)) Module.FS.writeFile(DIR + '/' + f, unb64(bundle[f])); });
+	/* Export save: the save files as one JSON bundle {NAME.ALF: base64, ...} (rvip-app.js) */
+	function bundleFiles() { return saveFiles().map(function (f) { return DIR + '/' + f; }); }
+	function putSave(file, data) {
+		var f = file.name.split(/[\/\\]/).pop();
+		if (!f || f[0] === '.') return 'Not an AlphaMan save file.';
+		Module.FS.writeFile(DIR + '/' + f, data);
 	}
 	function autosave() {
 		if (!app.running || !wantSaveFlag) return;
@@ -210,7 +201,7 @@
 		};
 		return;
 	}
-	app = RvipApp({ name: 'alphaman', save: bundleFile, clear: clearSaves, put: putBundle });
+	app = RvipApp({ name: 'alphaman', save: bundleFiles, clear: clearSaves, put: putSave });
 	window.Module = {
 		arguments: [],
 		preRun: [function () {
