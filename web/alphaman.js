@@ -301,8 +301,8 @@
 		cv.style.imageRendering = 'pixelated';
 		cv.addEventListener('click', onClick);
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
-		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
-			list.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n.replace(/^Web(Plus|437)_/, '').replace(/_/g, ' '); $('sel-font').appendChild(o); });
+		RvipWM.fonts.then(function (list) {
+			RvipWM.fontOptions($('sel-font'));
 			$('sel-font').value = L.face || '';
 		}).catch(function () { });
 		$('sel-font').onchange = function () { L.face = this.value; saveLayout(); loadFace(this.value); this.blur(); };

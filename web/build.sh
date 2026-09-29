@@ -22,5 +22,3 @@ emcc -O2 -fno-strict-aliasing -fwrapv -Iport -I"$FBSRC/src/rtlib" \
   --embed-file data@/data -o web/dist/alphaman-core.js
 cp web/index.html web/alphaman.js web/dist/
 python3 web/make-help.py > web/dist/help.html
-# Messages font: the index page's fonts/ (served at ../fonts/ next to the games)
-(cd ~/Games/roguelikes-index/fonts && ls *.woff | sed 's/\.woff$//') | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > web/dist/fonts.json
